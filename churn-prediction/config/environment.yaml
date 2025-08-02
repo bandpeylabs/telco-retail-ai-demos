@@ -2,3 +2,25 @@ main:
   catalog: demos
   schema: telco
   bronze: bronze
+  silver: silver
+  gold: gold
+
+  # Table names for different layers
+  tables:
+    bronze:
+      customers: telco_churn_customers_bronze
+      call_log: telco_call_log_bronze
+    silver:
+      customers: telco_churn_customers_silver
+      call_log: telco_call_log_silver
+      vertex: telco_vertex_df
+      edge: telco_edge_df
+    gold:
+      customer_features: telco_churn_customer_features
+      graph_features: telco_churn_graph_features
+      combined_features: telco_churn_combined_features
+
+  # Feature store configuration
+  feature_store:
+    customer_features: telco_churn_customer_features
+    graph_features: telco_churn_graph_features
