@@ -1,8 +1,4 @@
 # Databricks notebook source
-# MAGIC %md This notebook is available at https://github.com/databricks-industry-solutions/graph-analytics-churn-prediction.
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Exploratory Data Analysis
 
@@ -20,7 +16,7 @@ import re
 
 # COMMAND ----------
 
-catalog = "hive_metastore"
+catalog = "demos"
 db_name = "telco"
 
 # COMMAND ----------

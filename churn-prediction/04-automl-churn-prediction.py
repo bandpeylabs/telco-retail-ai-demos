@@ -1,8 +1,4 @@
 # Databricks notebook source
-# MAGIC %md This notebook is available at https://github.com/databricks-industry-solutions/graph-analytics-churn-prediction.
-
-# COMMAND ----------
-
 # MAGIC %md-sandbox
 # MAGIC
 # MAGIC ## Accelerating Churn model creation using Databricks Auto-ML
@@ -35,7 +31,7 @@ from databricks import automl, feature_store
 
 # COMMAND ----------
 
-catalog = "hive_metastore"
+catalog = "demos"
 db_name = "telco"
 
 # COMMAND ----------
@@ -71,7 +67,3 @@ summary = automl.classify(
 # MAGIC ### Using the generated notebook to build our model
 # MAGIC
 # MAGIC Next step: [Explore the generated Auto-ML sample notebook]($./05_AutoML_generated_notebook)
-
-# COMMAND ----------
-
-
