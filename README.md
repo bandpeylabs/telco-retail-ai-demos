@@ -1,4 +1,4 @@
-# telco-retail-ai-demos
+# Telco-Retail AI Demos
 
 A comprehensive collection of applied AI use cases specifically designed for the telecom retail industry. This repository contains ready-to-use demos and implementations for critical business challenges faced by telecom operators, including customer churn prediction, referral-based growth engines, customer segmentation, and more.
 
