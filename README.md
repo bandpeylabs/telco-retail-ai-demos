@@ -13,7 +13,7 @@ These demos are built using state-of-the-art machine learning and predictive ana
 
 This repository is organized into focused subdirectories, each containing a specific AI use case implementation:
 
-- **[churn-prediction](./churn-prediction/)** - Customer churn prediction models and analysis tools
+- **[churn-prediction](./churn-prediction/README.md)** - Customer churn prediction models and analysis tools
 - **[referral-engine](./referral-engine/)** - Referral-based growth engine and customer acquisition system
 - **[customer-segmentation](./customer-segmentation/)** - Customer segmentation and clustering algorithms
 - **[predictive-analytics](./predictive-analytics/)** - Advanced predictive analytics for business intelligence
