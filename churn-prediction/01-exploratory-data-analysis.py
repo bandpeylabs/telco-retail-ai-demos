@@ -34,36 +34,51 @@ tables
 
 # COMMAND ----------
 
-#Dataset under apache license: https://github.com/IBM/telco-customer-churn-on-icp4d/blob/master/LICENSE
-cust_csv = requests.get("https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv").text
+# Dataset under apache license: https://github.com/IBM/telco-customer-churn-on-icp4d/blob/master/LICENSE
+cust_csv = requests.get(
+    "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv").text
 cust_df = pd.read_csv(StringIO(cust_csv), sep=",")
 
+
 def cleanup_column(pdf):
-  # Clean up column names
-  pdf.columns = [re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower().replace("__", "_") for name in pdf.columns]
-  pdf.columns = [re.sub(r'[\(\)]', '', name).lower() for name in pdf.columns]
-  pdf.columns = [re.sub(r'[ -]', '_', name).lower() for name in pdf.columns]
-  return pdf.rename(columns = {'streaming_t_v': 'streaming_tv', 'customer_i_d': 'customer_id'})
-  
+    # Clean up column names
+    pdf.columns = [re.sub(r'(?<!^)(?=[A-Z])', '_',
+                          name).lower().replace("__", "_") for name in pdf.columns]
+    pdf.columns = [re.sub(r'[\(\)]', '', name).lower() for name in pdf.columns]
+    pdf.columns = [re.sub(r'[ -]', '_', name).lower() for name in pdf.columns]
+    return pdf.rename(columns={'streaming_t_v': 'streaming_tv', 'customer_i_d': 'customer_id'})
+
+
 cust_df = cleanup_column(cust_df)
 
-mobile_csv = requests.get("https://raw.githubusercontent.com/databricks-industry-solutions/graph-analytics-churn-prediction/main/data/telco_customer_mobile.csv").text 
-mobile_df = pd.read_csv(StringIO(mobile_csv), sep=",")
+# Get current user and construct workspace path
+current_user = dbutils.notebook.entry_point.getDbutils(
+).notebook().getContext().userName().get()
+workspace_path = f"/Workspace/Users/{current_user}/telco-retail-ai-demos/churn-prediction/data"
+
+print(f"Using workspace path: {workspace_path}")
+print(f"Current user: {current_user}")
+
+# Read mobile data from local workspace
+mobile_df = pd.read_csv(f"{workspace_path}/telco_customer_mobile.csv", sep=",")
 
 df = cust_df.merge(mobile_df, on='customer_id', how='left')
 df = df[['customer_id', 'gender', 'senior_citizen', 'partner', 'dependents',
-       'tenure', 'phone_service', 'multiple_lines', 'internet_service',
-       'online_security', 'online_backup', 'device_protection', 'tech_support',
-       'streaming_tv', 'streaming_movies', 'contract', 'paperless_billing',
-       'payment_method', 'monthly_charges', 'total_charges', 'mobile_number', 'churn']]
-spark.createDataFrame(df).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.{tables['bronze']['customers']}")
+         'tenure', 'phone_service', 'multiple_lines', 'internet_service',
+         'online_security', 'online_backup', 'device_protection', 'tech_support',
+         'streaming_tv', 'streaming_movies', 'contract', 'paperless_billing',
+         'payment_method', 'monthly_charges', 'total_charges', 'mobile_number', 'churn']]
+spark.createDataFrame(df).write.mode("overwrite").option(
+    "overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.{tables['bronze']['customers']}")
 
 # COMMAND ----------
 
-call_csv = requests.get("https://raw.githubusercontent.com/databricks-industry-solutions/graph-analytics-churn-prediction/main/data/telco_call_log.csv").text
-call_df = pd.read_csv(StringIO(call_csv), sep=",")
-call_df = call_df[['datatime', 'caller_mobile_number', 'callee_mobile_number', 'duration']]
-spark.createDataFrame(call_df).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_call_log_bronze")
+# Read call log data from local workspace
+call_df = pd.read_csv(f"{workspace_path}/telco_call_log.csv", sep=",")
+call_df = call_df[['datatime', 'caller_mobile_number',
+                   'callee_mobile_number', 'duration']]
+spark.createDataFrame(call_df).write.mode("overwrite").option(
+    "overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_call_log_bronze")
 
 # COMMAND ----------
 
@@ -98,11 +113,12 @@ display(call_df)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC As you may have noticed, the data type for some of the fields are wrong. As example, the data type of total_charges should be changed to double and the data type call datetime should be changed to datetime. 
+# MAGIC As you may have noticed, the data type for some of the fields are wrong. As example, the data type of total_charges should be changed to double and the data type call datetime should be changed to datetime.
 
 # COMMAND ----------
 
-customer_df = customer_df.withColumn("total_charges", customer_df["total_charges"].cast(DoubleType()))
+customer_df = customer_df.withColumn(
+    "total_charges", customer_df["total_charges"].cast(DoubleType()))
 
 # COMMAND ----------
 
@@ -115,7 +131,8 @@ call_df = call_df.withColumn("datatime", F.to_timestamp("datatime"))
 
 # COMMAND ----------
 
-fig = px.histogram(customer_df.toPandas().sample(n=10000, replace=True, random_state=123).sort_index(), x='payment_method', color='churn')
+fig = px.histogram(customer_df.toPandas().sample(n=10000, replace=True,
+                   random_state=123).sort_index(), x='payment_method', color='churn')
 fig.update_xaxes(categoryorder='total descending')
 fig.show()
 
@@ -126,9 +143,9 @@ fig.show()
 
 # COMMAND ----------
 
-fig = px.histogram(df, x="tenure", color="churn", 
-             color_discrete_map={'No':'orange',
-                                 'Yes':'green'})
+fig = px.histogram(df, x="tenure", color="churn",
+                   color_discrete_map={'No': 'orange',
+                                       'Yes': 'green'})
 fig.show()
 
 # COMMAND ----------
@@ -174,16 +191,16 @@ display(vertex_df)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC To create an edge DataFrame from the call logs, we first need to map mobile_number to customer_id. 
+# MAGIC To create an edge DataFrame from the call logs, we first need to map mobile_number to customer_id.
 
 # COMMAND ----------
 
-edge_df = call_df.alias('call').join(customer_df.alias('customer'), call_df.caller_mobile_number==customer_df.mobile_number, how='left')\
-                 .select('customer.customer_id','call.callee_mobile_number')\
-                 .withColumnRenamed('customer_id','src')
-edge_df = edge_df.alias('call').join(customer_df.alias('customer'), call_df.callee_mobile_number==customer_df.mobile_number, how='left')\
-                 .select('customer.customer_id','call.src')\
-                 .withColumnRenamed('customer_id','dst')
+edge_df = call_df.alias('call').join(customer_df.alias('customer'), call_df.caller_mobile_number == customer_df.mobile_number, how='left')\
+                 .select('customer.customer_id', 'call.callee_mobile_number')\
+                 .withColumnRenamed('customer_id', 'src')
+edge_df = edge_df.alias('call').join(customer_df.alias('customer'), call_df.callee_mobile_number == customer_df.mobile_number, how='left')\
+                 .select('customer.customer_id', 'call.src')\
+                 .withColumnRenamed('customer_id', 'dst')
 edge_df = edge_df.dropDuplicates()
 
 # COMMAND ----------
@@ -201,7 +218,7 @@ g = GraphFrame(vertex_df, edge_df)
 
 # COMMAND ----------
 
-#The degree of the vertices
+# The degree of the vertices
 display(g.degrees.orderBy(F.desc("degree")))
 
 # COMMAND ----------
@@ -219,19 +236,23 @@ display(result)
 
 # COMMAND ----------
 
-# MAGIC %md 
+# MAGIC %md
 # MAGIC ## Saving updated dataframes
 
 # COMMAND ----------
 
-customer_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_churn_customers_silver")
-call_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_call_log_silver")
-vertex_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_vertex_df")
-edge_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_edge_df")
+customer_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(
+    f"{catalog}.{db_name}.telco_churn_customers_silver")
+call_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(
+    f"{catalog}.{db_name}.telco_call_log_silver")
+vertex_df.write.mode("overwrite").option(
+    "overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_vertex_df")
+edge_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(
+    f"{catalog}.{db_name}.telco_edge_df")
 
 # COMMAND ----------
 
-# MAGIC %md 
+# MAGIC %md
 # MAGIC ## Feature Engineering
 # MAGIC Our next job is to  prepare a set of features that we'll be able to use in customer churn prediction and other data science projects.
 # MAGIC
