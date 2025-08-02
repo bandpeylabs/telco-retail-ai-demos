@@ -4,6 +4,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ./config/environment-setup
+
+# COMMAND ----------
+
 import plotly.express as px
 from graphframes import *
 from pyspark.sql.types import DoubleType
@@ -16,18 +20,17 @@ import re
 
 # COMMAND ----------
 
-catalog = "demos"
-db_name = "telco"
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ### Data Sources
 # MAGIC
-# MAGIC There are different data sources used in this solution accelerator:
+# MAGIC There are different data sources used in this demo:
 # MAGIC
 # MAGIC - **telco churn customer data**: This is mainly based on [IBM's telco customer churn dataset](https://github.com/IBM/telco-customer-churn-on-icp4d). Some preprocessing of the data has been done as below and artificially generated customer mobile phone numbers has been added as an additional data filed.
 # MAGIC - **telco call log data**: The customer call log data has been intentionally fabricated in such a way that the call network graph exhibits the characteristics of a scale-free distribution.
+
+# COMMAND ----------
+
+tables
 
 # COMMAND ----------
 
@@ -53,7 +56,7 @@ df = df[['customer_id', 'gender', 'senior_citizen', 'partner', 'dependents',
        'online_security', 'online_backup', 'device_protection', 'tech_support',
        'streaming_tv', 'streaming_movies', 'contract', 'paperless_billing',
        'payment_method', 'monthly_charges', 'total_charges', 'mobile_number', 'churn']]
-spark.createDataFrame(df).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_churn_customers_bronze")
+spark.createDataFrame(df).write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.{tables['bronze']['customers']}")
 
 # COMMAND ----------
 

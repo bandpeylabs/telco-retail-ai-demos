@@ -26,6 +26,7 @@ with open('config/environment.yaml', 'r') as file:
     config = yaml.safe_load(file)
 
 config = config['main']
+tables = config['tables']
 
 # COMMAND ----------
 
