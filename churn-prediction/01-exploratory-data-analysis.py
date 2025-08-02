@@ -89,13 +89,105 @@ spark.createDataFrame(call_df).write.mode("overwrite").option(
 
 # Read customer data into Spark
 customer_df = spark.table(f"{catalog}.{db_name}.telco_churn_customers_bronze")
-display(customer_df)
+display(customer_df.head(10))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Telco Customer Churn Dataset - Field Descriptions
+# MAGIC
+# MAGIC ## Customer Identification
+# MAGIC - **customer_id**: Unique identifier for each customer (format: XXXX-XXXXX)
+# MAGIC
+# MAGIC ## Demographics
+# MAGIC - **gender**: Customer's gender (Female/Male)
+# MAGIC - **senior_citizen**: Binary indicator for senior citizen status (0 = No, 1 = Yes)
+# MAGIC - **partner**: Whether the customer has a partner (Yes/No)
+# MAGIC - **dependents**: Whether the customer has dependents (Yes/No)
+# MAGIC
+# MAGIC ## Service Tenure
+# MAGIC - **tenure**: Number of months the customer has been with the company
+# MAGIC
+# MAGIC ## Phone Services
+# MAGIC - **phone_service**: Whether the customer has phone service (Yes/No)
+# MAGIC - **multiple_lines**: Type of phone service (Yes/No/No phone service)
+# MAGIC
+# MAGIC ## Internet Services
+# MAGIC - **internet_service**: Type of internet service (DSL/Fiber optic/No)
+# MAGIC - **online_security**: Whether the customer has online security (Yes/No)
+# MAGIC - **online_backup**: Whether the customer has online backup (Yes/No)
+# MAGIC - **device_protection**: Whether the customer has device protection (Yes/No)
+# MAGIC - **tech_support**: Whether the customer has tech support (Yes/No)
+# MAGIC - **streaming_tv**: Whether the customer has streaming TV (Yes/No)
+# MAGIC - **streaming_movies**: Whether the customer has streaming movies (Yes/No)
+# MAGIC
+# MAGIC ## Contract & Billing
+# MAGIC - **contract**: Type of contract (Month-to-month/One year/Two year)
+# MAGIC - **paperless_billing**: Whether the customer has paperless billing (Yes/No)
+# MAGIC - **payment_method**: Method of payment (Electronic check/Mailed check/Bank transfer (automatic)/Credit card (automatic))
+# MAGIC
+# MAGIC ## Financial Information
+# MAGIC - **monthly_charges**: Monthly charges in dollars
+# MAGIC - **total_charges**: Total charges in dollars
+# MAGIC
+# MAGIC ## Contact Information
+# MAGIC - **mobile_number**: Customer's mobile phone number (format: XXX-XXX-XXXX)
+# MAGIC
+# MAGIC ## Target Variable
+# MAGIC - **churn**: Whether the customer churned (Yes/No) - This is the target variable for prediction
+# MAGIC
+# MAGIC ## Data Types Summary
+# MAGIC - **Categorical Variables**: gender, partner, dependents, phone_service, multiple_lines, internet_service, online_security, online_backup, device_protection, tech_support, streaming_tv, streaming_movies, contract, paperless_billing, payment_method, churn
+# MAGIC - **Numerical Variables**: senior_citizen (binary), tenure, monthly_charges, total_charges
+# MAGIC - **Identifier Variables**: customer_id, mobile_number
+# MAGIC
+# MAGIC ## Key Insights from Sample Data
+# MAGIC - The dataset includes both churned (Yes) and non-churned (No) customers
+# MAGIC - Monthly charges range from ~$29 to ~$105
+# MAGIC - Tenure varies from 1 month to 62 months
+# MAGIC - Multiple contract types and payment methods are represented
+# MAGIC - Various combinations of services (phone, internet, streaming) are present
 
 # COMMAND ----------
 
 # Read call log data into Spark
 call_df = spark.table(f"{catalog}.{db_name}.telco_call_log_bronze")
-display(call_df)
+display(call_df.head(10))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Telco Call Log Dataset - Field Descriptions
+# MAGIC
+# MAGIC ## Call Information
+# MAGIC - **datatime**: Timestamp of when the call was made (ISO 8601 format: YYYY-MM-DDTHH:MM:SS.sssZ)
+# MAGIC - **caller_mobile_number**: Mobile phone number of the person making the call (format: XXX-XXX-XXXX)
+# MAGIC - **callee_mobile_number**: Mobile phone number of the person receiving the call (format: XXX-XXX-XXXX)
+# MAGIC - **duration**: Length of the call in seconds (integer value)
+# MAGIC
+# MAGIC ## Data Types Summary
+# MAGIC - **Timestamp Variable**: datatime (datetime)
+# MAGIC - **String Variables**: caller_mobile_number, callee_mobile_number
+# MAGIC - **Numerical Variable**: duration (integer)
+# MAGIC
+# MAGIC ## Key Insights from Sample Data
+# MAGIC - **Call Duration Range**: Calls vary from 9 to 51 seconds in the sample
+# MAGIC - **Call Patterns**: Some numbers appear multiple times as callers (e.g., 269-370-9095, 908-155-0449)
+# MAGIC - **Time Distribution**: Calls span across different months and times of day
+# MAGIC - **Network Analysis**: This data can be used to build a call network graph for customer relationship analysis
+# MAGIC
+# MAGIC ## Usage in Graph Analytics
+# MAGIC This call log data is particularly valuable for:
+# MAGIC - **Network Analysis**: Building customer relationship graphs
+# MAGIC - **Churn Prediction**: Analyzing calling patterns as features
+# MAGIC - **Customer Segmentation**: Identifying high-value customers based on call behavior
+# MAGIC - **Graph Features**: Creating features like degree centrality, betweenness centrality, etc.
+# MAGIC
+# MAGIC ## Data Quality Notes
+# MAGIC - Mobile numbers follow consistent XXX-XXX-XXXX format
+# MAGIC - Timestamps are in UTC timezone (indicated by 'Z' suffix)
+# MAGIC - Duration values are positive integers
+# MAGIC - Some customers appear as both callers and callees, indicating bidirectional communication patterns
 
 # COMMAND ----------
 
@@ -249,12 +341,3 @@ vertex_df.write.mode("overwrite").option(
     "overwriteSchema", "true").saveAsTable(f"{catalog}.{db_name}.telco_vertex_df")
 edge_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(
     f"{catalog}.{db_name}.telco_edge_df")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Feature Engineering
-# MAGIC Our next job is to  prepare a set of features that we'll be able to use in customer churn prediction and other data science projects.
-# MAGIC
-# MAGIC
-# MAGIC Next: [Customer feature engineering]($./02_Customer_feature_engineering)
