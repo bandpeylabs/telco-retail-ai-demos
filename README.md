@@ -11,6 +11,8 @@ These demos are built using state-of-the-art machine learning and predictive ana
 
 ## System Architecture
 
+![](./churn-prediction/architecture/diagram.png)
+
 ```mermaid
 graph TB
     subgraph "Data Sources"

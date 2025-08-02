@@ -12,6 +12,8 @@ By combining these features with other customer data, such as demographics and u
 
 ## Workflow Of Churn Prediction
 
+![](./architecture/diagram.png)
+
 ```mermaid
 graph TB
     subgraph "Data Sources"
