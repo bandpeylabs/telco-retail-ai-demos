@@ -483,7 +483,7 @@ stats = {
     'Is Connected': nx.is_weakly_connected(G),
     'Number of Components': nx.number_weakly_connected_components(G),
     'Average Clustering Coefficient': nx.average_clustering(G),
-    'Diameter': nx.diameter(G) if nx.is_weakly_connected(G) else 'N/A'
+    'Diameter': nx.diameter(G.to_undirected()) if nx.is_weakly_connected(G) else 'N/A'
 }
 
 print("📊 Graph Statistics:")
@@ -643,9 +643,9 @@ for i, (node, score) in enumerate(top_betweenness, 1):
 if nx.is_weakly_connected(G):
     print(f"\n🔗 Network Connectivity:")
     print(f"  - The network is weakly connected")
-    print(f"  - Diameter: {nx.diameter(G)}")
+    print(f"  - Diameter: {nx.diameter(G.to_undirected())}")
     print(
-        f"  - Average shortest path length: {nx.average_shortest_path_length(G):.2f}")
+        f"  - Average shortest path length: {nx.average_shortest_path_length(G.to_undirected()):.2f}")
 else:
     components = list(nx.weakly_connected_components(G))
     largest_component = max(components, key=len)
