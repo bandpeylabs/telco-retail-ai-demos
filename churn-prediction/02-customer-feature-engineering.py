@@ -6,14 +6,13 @@
 
 # COMMAND ----------
 
-from graphframes import *
-from math import comb
-import re
+# MAGIC %run ./config/environment-setup
 
 # COMMAND ----------
 
-catalog = "demos"
-db_name = "telco"
+from graphframes import *
+from math import comb
+import re
 
 # COMMAND ----------
 
@@ -27,9 +26,7 @@ display(customer_df)
 # MAGIC %md
 # MAGIC ### Using Pandas on spark
 # MAGIC
-# MAGIC Because our Data Scientist team is familiar with Pandas, we'll use `Pandas on spark` to scale `pandas` code. The Pandas instructions will be converted in the spark engine under the hood and distributed at scale.
-# MAGIC
-# MAGIC *Note: Starting from `spark 3.2`, koalas is builtin and we can get an Pandas Dataframe using `pandas_api`.*
+# MAGIC Performing feature engineering is more straightforward with Pandas, we'll use `Pandas on spark` to scale `pandas` code. The Pandas instructions will be converted in the spark engine under the hood and distributed at scale.
 
 # COMMAND ----------
 
@@ -116,12 +113,3 @@ customer_feature_table = fs.create_table(
 )
 
 fs.write_table(df=customer_features_df.to_spark(), name=f"{catalog}.{db_name}.telco_churn_customer_features", mode='overwrite')
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC ## Graph Feature Engineering
-# MAGIC Our next job is to prepare a set of features from the customer call graph that we'll be able to use in customer churn prediction and other data science projects.
-# MAGIC
-# MAGIC
-# MAGIC Next: [Graph feature engineering]($./03_Graph_feature_engineering)
