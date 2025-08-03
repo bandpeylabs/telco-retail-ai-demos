@@ -64,6 +64,8 @@ g = GraphFrame(vertex_df, edge_df)
 # MAGIC **Degree centrality** measures the number of connections each customer has in the call network.
 # MAGIC This is a fundamental measure of how connected a customer is to others.
 
+# COMMAND ----------
+
 degree_df = g.degrees
 graph_features_df = vertex_df.alias('customer').join(degree_df, degree_df.id == vertex_df.id, 'left')\
                              .select('customer.id', 'degree')\
@@ -79,6 +81,8 @@ display(graph_features_df.orderBy(F.col("degree").desc()))
 # MAGIC **In-degree centrality** measures how many incoming calls a customer receives.
 # MAGIC This indicates the customer's popularity or influence in the network.
 
+# COMMAND ----------
+
 indegree_df = g.inDegrees
 graph_features_df = graph_features_df.alias('features').join(indegree_df, indegree_df.id == graph_features_df.customer_id, 'left')\
     .select('features.*', 'inDegree')\
@@ -92,6 +96,8 @@ display(graph_features_df.orderBy(F.col("inDegree").desc()))
 # MAGIC %md
 # MAGIC **Out-degree centrality** measures how many outgoing calls a customer makes.
 # MAGIC This indicates the customer's level of engagement with the service.
+
+# COMMAND ----------
 
 outdegree_df = g.outDegrees
 graph_features_df = graph_features_df.alias('features').join(outdegree_df, outdegree_df.id == graph_features_df.customer_id, 'left')\
@@ -107,6 +113,7 @@ display(graph_features_df.orderBy(F.col("outDegree").desc()))
 # MAGIC **Degree ratios** help us understand the balance between incoming and outgoing connections.
 # MAGIC This can reveal patterns in customer behavior and network influence.
 
+# COMMAND ----------
 
 def degreeRatio(x, d):
     if d == 0:
