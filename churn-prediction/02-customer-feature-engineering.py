@@ -7,7 +7,7 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./config/environment-setup
+v
 
 # COMMAND ----------
 
@@ -209,7 +209,7 @@ print(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ![Feature Store Architecture](./churn-prediction/architecture/screenshots/featurestore.png)
+# MAGIC <img src="https://github.com/bandpeylabs/telco-retail-ai-demos/blob/main/churn-prediction/architecture/screenshots/featurestore.png?raw=true" width="800" />
 
 # COMMAND ----------
 

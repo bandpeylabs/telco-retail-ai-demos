@@ -6,17 +6,16 @@
 
 # COMMAND ----------
 
+# MAGIC %run ./config/environment-setup
+
+# COMMAND ----------
+
 from graphframes import *
 from math import comb
 import pyspark.sql.functions as F
 from pyspark.sql.types import FloatType
 from warnings import filterwarnings
 filterwarnings('ignore', 'DataFrame.sql_ctx is an internal property')
-
-# COMMAND ----------
-
-catalog = "demos"
-db_name = "telco"
 
 # COMMAND ----------
 
@@ -263,14 +262,3 @@ graph_feature_table = fs.create_table(
 )
 
 fs.write_table(df=graph_features_df, name=f"{catalog}.{db_name}.telco_churn_graph_features", mode='overwrite')
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC ### Using Databricks AutoML to build our model
-# MAGIC
-# MAGIC Next step: [Churn preiction model using AutoML]($./04_AutoML_churn_prediction)
-
-# COMMAND ----------
-
-
