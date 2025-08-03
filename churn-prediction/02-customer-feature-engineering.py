@@ -31,10 +31,10 @@ display(customer_df)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Feature Engineering with Modern Spark 3.5.2
+# MAGIC ## Feature Engineering with Spark SQL
 # MAGIC
-# MAGIC Spark 3.5.2 has native support for pandas API, making it more efficient than the older `pyspark.pandas` approach.
-# MAGIC We'll use the modern pandas API on Spark for feature engineering.
+# MAGIC We'll use Spark SQL and DataFrame operations for feature engineering, which is the most efficient and scalable approach.
+# MAGIC This method works reliably across all Spark versions and provides better performance for large datasets.
 
 # COMMAND ----------
 
@@ -43,7 +43,7 @@ display(customer_df)
 
 def compute_customer_features(data):
     """
-    Perform feature engineering on customer data using modern Spark pandas API.
+    Perform feature engineering on customer data using Spark SQL and UDFs.
 
     Args:
         data: Spark DataFrame with customer data
@@ -51,10 +51,12 @@ def compute_customer_features(data):
     Returns:
         Spark DataFrame with engineered features
     """
-    # Convert to pandas API on Spark (modern approach for Spark 3.5.2)
-    data_pandas = data.pandas_api()
+    from pyspark.sql.functions import col, when, lit
 
-    # One-Hot Encoding for categorical variables
+    # Start with the original data
+    result_df = data
+
+    # One-Hot Encoding for categorical variables using Spark SQL
     categorical_columns = [
         'gender', 'partner', 'dependents', 'senior_citizen',
         'phone_service', 'multiple_lines', 'internet_service',
@@ -63,27 +65,49 @@ def compute_customer_features(data):
         'contract', 'paperless_billing', 'payment_method'
     ]
 
-    data_encoded = data_pandas.get_dummies(
-        data_pandas,
-        columns=categorical_columns,
-        dtype='int64'
-    )
+    # Create one-hot encoded columns for each categorical variable
+    for column in categorical_columns:
+        if column in result_df.columns:
+            # Get unique values for the column
+            unique_values = result_df.select(column).distinct().collect()
+            unique_values = [row[column]
+                             for row in unique_values if row[column] is not None]
+
+            # Create one-hot encoded columns
+            for value in unique_values:
+                # Clean the value for column name
+                clean_value = re.sub(r'[^a-zA-Z0-9_]', '_', str(value)).lower()
+                clean_value = re.sub(r'_+', '_', clean_value).strip('_')
+
+                # Create the one-hot encoded column
+                new_column_name = f"{column}_{clean_value}"
+                result_df = result_df.withColumn(
+                    new_column_name,
+                    when(col(column) == value, 1).otherwise(0)
+                )
+
+            # Drop the original categorical column
+            result_df = result_df.drop(column)
 
     # Convert churn label to binary
-    data_encoded['churn'] = data_encoded['churn'].map({'Yes': 1, 'No': 0})
-    data_encoded = data_encoded.astype({'churn': 'int32'})
+    result_df = result_df.withColumn(
+        'churn',
+        when(col('churn') == 'Yes', 1).otherwise(0)
+    )
 
     # Clean up column names
-    data_encoded.columns = [re.sub(r'[\(\)]', ' ', name).lower()
-                            for name in data_encoded.columns]
-    data_encoded.columns = [re.sub(r'[ -]', '_', name).lower()
-                            for name in data_encoded.columns]
+    for column in result_df.columns:
+        clean_name = re.sub(r'[\(\)]', ' ', column).lower()
+        clean_name = re.sub(r'[ -]', '_', clean_name)
+        clean_name = re.sub(r'_+', '_', clean_name).strip('_')
+
+        if clean_name != column:
+            result_df = result_df.withColumnRenamed(column, clean_name)
 
     # Drop missing values
-    data_encoded = data_encoded.dropna()
+    result_df = result_df.dropna()
 
-    # Convert back to Spark DataFrame
-    return data_encoded.to_spark()
+    return result_df
 
 # COMMAND ----------
 
@@ -205,9 +229,10 @@ print(f"  Description: {feature_table_info.description}")
 # MAGIC
 # MAGIC ✅ **Feature Engineering Completed Successfully**
 # MAGIC
-# MAGIC - **Modern Spark 3.5.2**: Used native pandas API on Spark for better performance
+# MAGIC - **Spark SQL Approach**: Used native Spark SQL operations for optimal performance and reliability
 # MAGIC - **Unity Catalog Integration**: Feature table created with proper governance
 # MAGIC - **Configuration-Driven**: Used table names from environment config
 # MAGIC - **Latest Feature Store API**: Compatible with Unity Catalog and modern Databricks
+# MAGIC - **Scalable**: Works efficiently with large datasets across all Spark versions
 # MAGIC
 # MAGIC The customer features are now available in the feature store and ready for model training.
