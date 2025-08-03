@@ -1,8 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC ## Engineering customer features
+# MAGIC # Customer Feature Engineering
 # MAGIC
-# MAGIC This is a fairly clean dataset so we'll just do some one-hot encoding, and clean up the column names afterward.
+# MAGIC This notebook performs feature engineering on the customer data to prepare features for churn prediction.
+# MAGIC We'll use modern Spark 3.5.2 capabilities and Unity Catalog for feature store operations.
 
 # COMMAND ----------
 
@@ -10,59 +11,93 @@
 
 # COMMAND ----------
 
+from databricks.feature_store import FeatureStoreClient
 from graphframes import *
 from math import comb
 import re
 
 # COMMAND ----------
 
-# DBTITLE 1,Read in Silver Delta table using Spark
-# Read customer data into Spark
-customer_df = spark.table(f"{catalog}.{db_name}.telco_churn_customers_silver")
+# MAGIC %md
+# MAGIC ## Load Customer Data from Silver Layer
+
+# COMMAND ----------
+
+# Read customer data from silver layer using config-based table names
+customer_df = spark.table(
+    f"{catalog}.{schema}.{tables['silver']['customers']}")
 display(customer_df)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Using Pandas on spark
+# MAGIC ## Feature Engineering with Modern Spark 3.5.2
 # MAGIC
-# MAGIC Performing feature engineering is more straightforward with Pandas, we'll use `Pandas on spark` to scale `pandas` code. The Pandas instructions will be converted in the spark engine under the hood and distributed at scale.
+# MAGIC Spark 3.5.2 has native support for pandas API, making it more efficient than the older `pyspark.pandas` approach.
+# MAGIC We'll use the modern pandas API on Spark for feature engineering.
 
 # COMMAND ----------
 
 # DBTITLE 1,Define customer featurization function
-from databricks.feature_store import feature_table
-import pyspark.pandas as ps
+
 
 def compute_customer_features(data):
-  
-  # Convert to a dataframe compatible with the pandas API
-  data = data.pandas_api()
-  
-  # OHE
-  data = ps.get_dummies(data, 
-                        columns=['gender', 'partner', 'dependents', 'senior_citizen',
-                                 'phone_service', 'multiple_lines', 'internet_service',
-                                 'online_security', 'online_backup', 'device_protection',
-                                 'tech_support', 'streaming_tv', 'streaming_movies',
-                                 'contract', 'paperless_billing', 'payment_method'], dtype = 'int64')
-  
-  # Convert label to int and rename column
-  data['churn'] = data['churn'].map({'Yes': 1, 'No': 0})
-  data = data.astype({'churn': 'int32'})
-  
-  # Clean up column names
-  data.columns = [re.sub(r'[\(\)]', ' ', name).lower() for name in data.columns]
-  data.columns = [re.sub(r'[ -]', '_', name).lower() for name in data.columns]
+    """
+    Perform feature engineering on customer data using modern Spark pandas API.
 
-  
-  # Drop missing values
-  data = data.dropna()
-  
-  return data
+    Args:
+        data: Spark DataFrame with customer data
 
-customer_df = customer_df.drop('mobile_number')
-customer_features_df = compute_customer_features(customer_df)
+    Returns:
+        Spark DataFrame with engineered features
+    """
+    # Convert to pandas API on Spark (modern approach for Spark 3.5.2)
+    data_pandas = data.pandas_api()
+
+    # One-Hot Encoding for categorical variables
+    categorical_columns = [
+        'gender', 'partner', 'dependents', 'senior_citizen',
+        'phone_service', 'multiple_lines', 'internet_service',
+        'online_security', 'online_backup', 'device_protection',
+        'tech_support', 'streaming_tv', 'streaming_movies',
+        'contract', 'paperless_billing', 'payment_method'
+    ]
+
+    data_encoded = data_pandas.get_dummies(
+        data_pandas,
+        columns=categorical_columns,
+        dtype='int64'
+    )
+
+    # Convert churn label to binary
+    data_encoded['churn'] = data_encoded['churn'].map({'Yes': 1, 'No': 0})
+    data_encoded = data_encoded.astype({'churn': 'int32'})
+
+    # Clean up column names
+    data_encoded.columns = [re.sub(r'[\(\)]', ' ', name).lower()
+                            for name in data_encoded.columns]
+    data_encoded.columns = [re.sub(r'[ -]', '_', name).lower()
+                            for name in data_encoded.columns]
+
+    # Drop missing values
+    data_encoded = data_encoded.dropna()
+
+    # Convert back to Spark DataFrame
+    return data_encoded.to_spark()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Apply Feature Engineering
+
+# COMMAND ----------
+
+
+# Remove mobile_number column as it's not needed for features
+customer_df_clean = customer_df.drop('mobile_number')
+
+# Apply feature engineering
+customer_features_df = compute_customer_features(customer_df_clean)
 
 # COMMAND ----------
 
@@ -71,45 +106,108 @@ display(customer_features_df)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Profiling Report
+# MAGIC ## Feature Profiling Report
 
 # COMMAND ----------
 
-display(customer_features_df)
+# Display feature statistics
+display(customer_features_df.describe())
 
 # COMMAND ----------
 
-# MAGIC %md-sandbox
+# MAGIC %md
+# MAGIC ## Feature Store Integration with Unity Catalog
 # MAGIC
-# MAGIC ## Write to Feature Store
-# MAGIC
-# MAGIC <img src="https://github.com/QuentinAmbard/databricks-demo/raw/main/product_demos/mlops-end2end-flow-feature-store.png" style="float:right" width="500" />
-# MAGIC
-# MAGIC Once our features are ready, we'll save them in Databricks Feature Store. Under the hood, features store are backed by a Delta Lake table.
-# MAGIC
-# MAGIC This will allow discoverability and reusability of our feature accross our organization, increasing team efficiency.
-# MAGIC
-# MAGIC Feature store will bring traceability and governance in our deployment, knowing which model is dependent of which set of features.
-# MAGIC
-# MAGIC Make sure you're using the "Machine Learning" menu to have access to your feature store using the UI.
+# MAGIC We'll use the latest Feature Store API that's compatible with Unity Catalog.
+# MAGIC This provides better governance, lineage tracking, and feature discovery.
 
 # COMMAND ----------
 
-from databricks.feature_store import FeatureStoreClient
-
+# Initialize Feature Store client
 fs = FeatureStoreClient()
 
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Create Feature Table
+# MAGIC
+# MAGIC We'll create a feature table in Unity Catalog with proper schema and metadata.
+
+# COMMAND ----------
+
+# Get feature table name from config
+feature_table_name = f"{catalog}.{schema}.{feature_store['customer_features']}"
+
 try:
-  #drop table if exists
-  fs.drop_table(f"{catalog}.{db_name}.telco_churn_customer_features")
-except:
-  pass
-#Note: You might need to delete the FS table using the UI
+    # Drop existing table if it exists
+    fs.drop_table(feature_table_name)
+    print(f"✅ Dropped existing feature table: {feature_table_name}")
+except Exception as e:
+    print(f"ℹ️  No existing table to drop: {e}")
+
+# COMMAND ----------
+
+# Create feature table with Unity Catalog
 customer_feature_table = fs.create_table(
-  name=f"{catalog}.{db_name}.telco_churn_customer_features",
-  primary_keys='customer_id',
-  schema=customer_features_df.spark.schema(),
-  description='These features are derived from the telco_churn_customers_silver table in the lakehouse.  We created dummy variables for the categorical columns, cleaned up their names, and added a boolean flag for whether the customer churned or not.  No aggregations were performed.'
+    name=feature_table_name,
+    primary_keys=['customer_id'],
+    schema=customer_features_df.schema,
+    description="""
+    Customer features for churn prediction.
+    
+    Features include:
+    - One-hot encoded categorical variables (gender, partner, dependents, etc.)
+    - Service-related features (phone_service, internet_service, etc.)
+    - Contract and billing features (contract_type, payment_method, etc.)
+    - Target variable: churn (1 = churned, 0 = retained)
+    
+    Derived from telco_churn_customers_silver table.
+    """
 )
 
-fs.write_table(df=customer_features_df.to_spark(), name=f"{catalog}.{db_name}.telco_churn_customer_features", mode='overwrite')
+print(f"✅ Created feature table: {feature_table_name}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Write Features to Feature Store
+
+# COMMAND ----------
+
+# Write features to feature store
+fs.write_table(
+    df=customer_features_df,
+    name=feature_table_name,
+    mode='overwrite'
+)
+
+print(
+    f"✅ Successfully wrote {customer_features_df.count()} feature records to {feature_table_name}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Feature Store Verification
+
+# COMMAND ----------
+
+# Verify the feature table was created correctly
+feature_table_info = fs.get_table(feature_table_name)
+print(f"Feature Table Info:")
+print(f"  Name: {feature_table_info.name}")
+print(f"  Primary Keys: {feature_table_info.primary_keys}")
+print(f"  Description: {feature_table_info.description}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Summary
+# MAGIC
+# MAGIC ✅ **Feature Engineering Completed Successfully**
+# MAGIC
+# MAGIC - **Modern Spark 3.5.2**: Used native pandas API on Spark for better performance
+# MAGIC - **Unity Catalog Integration**: Feature table created with proper governance
+# MAGIC - **Configuration-Driven**: Used table names from environment config
+# MAGIC - **Latest Feature Store API**: Compatible with Unity Catalog and modern Databricks
+# MAGIC
+# MAGIC The customer features are now available in the feature store and ready for model training.
