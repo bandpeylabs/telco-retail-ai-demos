@@ -39,8 +39,6 @@ display(customer_df)
 # COMMAND ----------
 
 # DBTITLE 1,Define customer featurization function
-
-
 def compute_customer_features(data):
     """
     Perform feature engineering on customer data using Spark SQL and UDFs.
@@ -207,6 +205,11 @@ fs.write_table(
 
 print(
     f"✅ Successfully wrote {customer_features_df.count()} feature records to {feature_table_name}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ![Feature Store Architecture](./churn-prediction/architecture/screenshots/featurestore.png)
 
 # COMMAND ----------
 
