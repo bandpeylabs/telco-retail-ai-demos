@@ -11,11 +11,9 @@
 
 # COMMAND ----------
 
+from utils.graph import GraphVisualizer, create_centrality_visualization, create_community_visualization
 import pandas as pd
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
 import networkx as nx
 from databricks.feature_store import FeatureStoreClient
 from graphframes import *
@@ -440,12 +438,12 @@ print(
 # MAGIC %md
 # MAGIC ## Graph Visualization
 # MAGIC
-# MAGIC Let's create a rich visualization of our customer call network to better understand the graph structure and identify key patterns.
+# MAGIC Let's create rich, interactive visualizations of our customer call network using the enhanced graph visualization utilities.
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### NetworkX Visualization Setup
+# MAGIC ### NetworkX Graph Setup
 # MAGIC
 # MAGIC We'll convert our Spark GraphFrames to NetworkX for rich visualization capabilities.
 
@@ -495,88 +493,82 @@ for key, value in stats.items():
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Rich Graph Visualization
+# MAGIC ### Interactive Network Visualization
 
 # COMMAND ----------
 
-# DBTITLE 1,Create comprehensive graph visualization
-# Set up the figure with a larger size for better visibility
-plt.figure(figsize=(16, 12))
+# DBTITLE 1,Create interactive network visualization
+# Create visualizer instance
+visualizer = GraphVisualizer(height="800px", width="100%", directed=True)
 
-# Calculate node positions using spring layout
-pos = nx.spring_layout(G, k=3, iterations=50, seed=42)
+# Create comprehensive network visualization
+html_content, file_path = visualizer.display_graph(
+    graph=G,
+    title="Telco Customer Call Network - Interactive Visualization",
+    node_size_attr='degree',  # Use degree centrality for node size
+    node_color_attr='pagerank',  # Use PageRank for node color
+    color_scheme='viridis',
+    show_labels=True,
+    label_threshold=0.1  # Show labels for top 10% nodes
+)
 
-# Calculate node sizes based on degree centrality
-degree_centrality = nx.degree_centrality(G)
-node_sizes = [degree_centrality[node] * 3000 + 100 for node in G.nodes()]
-
-# Calculate node colors based on PageRank
-pagerank = nx.pagerank(G, alpha=0.85)
-node_colors = [pagerank[node] for node in G.nodes()]
-
-# Create custom colormap for PageRank
-cmap = plt.cm.viridis
-
-# Draw the graph
-nodes = nx.draw_networkx_nodes(G, pos,
-                               node_size=node_sizes,
-                               node_color=node_colors,
-                               cmap=cmap,
-                               alpha=0.8,
-                               edgecolors='black',
-                               linewidths=0.5)
-
-# Draw edges with different styles for directed graph
-edges = nx.draw_networkx_edges(G, pos,
-                               edge_color='gray',
-                               arrows=True,
-                               arrowsize=10,
-                               arrowstyle='->',
-                               alpha=0.4,
-                               width=0.5)
-
-# Add node labels for high-degree nodes (top 10%)
-degree_threshold = np.percentile(list(dict(G.degree()).values()), 90)
-high_degree_nodes = [node for node,
-                     degree in G.degree() if degree >= degree_threshold[0]]
-nx.draw_networkx_labels(G, pos,
-                        labels={node: str(node) for node in high_degree_nodes},
-                        font_size=8,
-                        font_weight='bold')
-
-# Create colorbar for PageRank
-sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(
-    vmin=min(node_colors), vmax=max(node_colors)))
-sm.set_array([])
-cbar = plt.colorbar(sm, ax=plt.gca(), shrink=0.8)
-cbar.set_label('PageRank Centrality', fontsize=12)
-
-# Add title and legend
-plt.title('Telco Customer Call Network\nNode size = Degree Centrality, Color = PageRank Centrality',
-          fontsize=16, fontweight='bold', pad=20)
-
-# Create legend
-legend_elements = [
-    mpatches.Patch(color='lightblue', label=f'Nodes: {G.number_of_nodes()}'),
-    mpatches.Patch(color='lightgray', label=f'Edges: {G.number_of_edges()}'),
-    mpatches.Patch(
-        color='orange', label=f'Avg Degree: {stats["Average Degree"]:.2f}')
-]
-plt.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(0, 1))
-
-plt.axis('off')
-plt.tight_layout()
-plt.show()
+print(f"✅ Interactive visualization created and saved to: {file_path}")
+print("📊 Visualization features:")
+print("  - Node size represents degree centrality")
+print("  - Node color represents PageRank centrality")
+print("  - Interactive zoom, pan, and hover tooltips")
+print("  - Labels shown for high-degree nodes")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Community Structure Visualization
+# MAGIC ### Centrality Analysis Visualizations
 
 # COMMAND ----------
 
-# DBTITLE 1,Visualize community structure
-# Detect communities using Louvain method
+# DBTITLE 1,PageRank Centrality Visualization
+# Create PageRank centrality visualization
+pagerank_html, pagerank_path = create_centrality_visualization(
+    graph=G,
+    centrality_type='pagerank',
+    title="Telco Customer Call Network - PageRank Centrality Analysis"
+)
+
+print(f"✅ PageRank visualization created: {pagerank_path}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Degree Centrality Visualization
+# Create degree centrality visualization
+degree_html, degree_path = create_centrality_visualization(
+    graph=G,
+    centrality_type='degree',
+    title="Telco Customer Call Network - Degree Centrality Analysis"
+)
+
+print(f"✅ Degree centrality visualization created: {degree_path}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Betweenness Centrality Visualization
+# Create betweenness centrality visualization
+betweenness_html, betweenness_path = create_centrality_visualization(
+    graph=G,
+    centrality_type='betweenness',
+    title="Telco Customer Call Network - Betweenness Centrality Analysis"
+)
+
+print(f"✅ Betweenness centrality visualization created: {betweenness_path}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Community Structure Analysis
+
+# COMMAND ----------
+
+# DBTITLE 1,Detect and visualize communities
+# Detect communities using label propagation
 try:
     from community import community_louvain
     communities = community_louvain.best_partition(G.to_undirected())
@@ -590,97 +582,20 @@ except ImportError:
             community_dict[node] = i
     communities = community_dict
 
-# Create visualization
-plt.figure(figsize=(16, 12))
-
-# Use the same positions for consistency
-pos = nx.spring_layout(G, k=3, iterations=50, seed=42)
-
-# Color nodes by community
-community_colors = [communities.get(node, 0) for node in G.nodes()]
-unique_communities = len(set(communities.values()))
-
-# Create a colormap for communities
-community_cmap = plt.cm.Set3
-
-# Draw nodes colored by community
-nodes = nx.draw_networkx_nodes(G, pos,
-                               node_size=node_sizes,
-                               node_color=community_colors,
-                               cmap=community_cmap,
-                               alpha=0.8,
-                               edgecolors='black',
-                               linewidths=0.5)
-
-# Draw edges
-edges = nx.draw_networkx_edges(G, pos,
-                               edge_color='gray',
-                               arrows=True,
-                               arrowsize=10,
-                               arrowstyle='->',
-                               alpha=0.3,
-                               width=0.3)
-
-# Add title
-plt.title(f'Telco Customer Call Network - Community Structure\n{unique_communities} Communities Detected',
-          fontsize=16, fontweight='bold', pad=20)
-
-# Create legend for communities
-legend_elements = [mpatches.Patch(color=community_cmap(i/unique_communities),
-                                  label=f'Community {i+1}')
-                   for i in range(unique_communities)]
-plt.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(0, 1))
-
-plt.axis('off')
-plt.tight_layout()
-plt.show()
+print(
+    f"✅ Detected {len(set(communities.values()))} communities in the network")
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ### Centrality Distribution Analysis
+# DBTITLE 1,Community Structure Visualization
+# Create community structure visualization
+community_html, community_path = create_community_visualization(
+    graph=G,
+    communities=communities,
+    title="Telco Customer Call Network - Community Structure Analysis"
+)
 
-# COMMAND ----------
-
-# DBTITLE 1,Analyze centrality distributions
-# Calculate various centrality measures
-centrality_measures = {
-    'Degree': nx.degree_centrality(G),
-    'In-Degree': nx.in_degree_centrality(G),
-    'Out-Degree': nx.out_degree_centrality(G),
-    'PageRank': nx.pagerank(G, alpha=0.85),
-    'Betweenness': nx.betweenness_centrality(G),
-    'Closeness': nx.closeness_centrality(G)
-}
-
-# Create subplots for centrality distributions
-fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-axes = axes.ravel()
-
-for i, (measure_name, centrality_dict) in enumerate(centrality_measures.items()):
-    values = list(centrality_dict.values())
-
-    axes[i].hist(values, bins=30, alpha=0.7,
-                 color='skyblue', edgecolor='black')
-    axes[i].set_title(
-        f'{measure_name} Centrality Distribution', fontweight='bold')
-    axes[i].set_xlabel(measure_name)
-    axes[i].set_ylabel('Frequency')
-    axes[i].grid(True, alpha=0.3)
-
-    # Add statistics
-    mean_val = np.mean(values)
-    median_val = np.median(values)
-    axes[i].axvline(mean_val, color='red', linestyle='--',
-                    label=f'Mean: {mean_val:.3f}')
-    axes[i].axvline(median_val, color='green', linestyle='--',
-                    label=f'Median: {median_val:.3f}')
-    axes[i].legend()
-
-plt.suptitle('Centrality Measures Distribution Analysis',
-             fontsize=16, fontweight='bold')
-plt.tight_layout()
-plt.show()
+print(f"✅ Community structure visualization created: {community_path}")
 
 # COMMAND ----------
 
@@ -693,6 +608,12 @@ plt.show()
 print("🔍 Network Topology Insights:")
 print("=" * 50)
 
+# Calculate centrality measures
+pagerank = nx.pagerank(G, alpha=0.85)
+degree_centrality = nx.degree_centrality(G)
+betweenness_centrality = nx.betweenness_centrality(G)
+closeness_centrality = nx.closeness_centrality(G)
+
 # Degree distribution analysis
 degree_sequence = sorted([d for n, d in G.degree()], reverse=True)
 print(f"📊 Degree Distribution:")
@@ -700,13 +621,25 @@ print(f"  - Maximum degree: {max(degree_sequence)}")
 print(f"  - Minimum degree: {min(degree_sequence)}")
 print(f"  - Average degree: {np.mean(degree_sequence):.2f}")
 
-# Identify key nodes
+# Identify key nodes by different centrality measures
 top_pagerank = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)[:5]
 print(f"\n🏆 Top 5 Most Influential Customers (PageRank):")
 for i, (node, score) in enumerate(top_pagerank, 1):
     print(f"  {i}. Customer {node}: {score:.4f}")
 
-# Network connectivity
+top_degree = sorted(degree_centrality.items(),
+                    key=lambda x: x[1], reverse=True)[:5]
+print(f"\n🔗 Top 5 Most Connected Customers (Degree Centrality):")
+for i, (node, score) in enumerate(top_degree, 1):
+    print(f"  {i}. Customer {node}: {score:.4f}")
+
+top_betweenness = sorted(betweenness_centrality.items(),
+                         key=lambda x: x[1], reverse=True)[:5]
+print(f"\n🌐 Top 5 Bridge Customers (Betweenness Centrality):")
+for i, (node, score) in enumerate(top_betweenness, 1):
+    print(f"  {i}. Customer {node}: {score:.4f}")
+
+# Network connectivity analysis
 if nx.is_weakly_connected(G):
     print(f"\n🔗 Network Connectivity:")
     print(f"  - The network is weakly connected")
@@ -725,6 +658,55 @@ avg_clustering = nx.average_clustering(G)
 print(f"\n🔺 Clustering Analysis:")
 print(f"  - Average clustering coefficient: {avg_clustering:.3f}")
 
+# Community analysis
+community_sizes = {}
+for node, community_id in communities.items():
+    community_sizes[community_id] = community_sizes.get(community_id, 0) + 1
+
+print(f"\n👥 Community Analysis:")
+print(f"  - Number of communities: {len(community_sizes)}")
+print(f"  - Largest community size: {max(community_sizes.values())}")
+print(
+    f"  - Average community size: {np.mean(list(community_sizes.values())):.1f}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Custom Network Analysis
+
+# COMMAND ----------
+
+# DBTITLE 1,Create custom visualization with specific styling
+# Create a custom visualization focusing on high-value customers
+visualizer_custom = GraphVisualizer(
+    height="900px", width="100%", directed=True)
+
+# Calculate customer value (simplified - could be based on actual business metrics)
+customer_values = {}
+for node in G.nodes():
+    # Simple value calculation based on degree and PageRank
+    degree_val = degree_centrality.get(node, 0)
+    pagerank_val = pagerank.get(node, 0)
+    customer_values[node] = (degree_val + pagerank_val) / 2
+
+# Add customer values to graph
+nx.set_node_attributes(G, customer_values, 'customer_value')
+
+# Create custom visualization
+custom_html, custom_path = visualizer_custom.display_graph(
+    graph=G,
+    title="Telco Customer Call Network - Customer Value Analysis",
+    node_size_attr='customer_value',
+    node_color_attr='customer_value',
+    color_scheme='plasma',
+    show_labels=True,
+    label_threshold=0.05  # Show labels for top 5% customers
+)
+
+print(f"✅ Custom customer value visualization created: {custom_path}")
+print("📊 This visualization highlights customers with high network value")
+print("  - Node size and color represent combined degree and PageRank centrality")
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -738,7 +720,7 @@ print(f"  - Average clustering coefficient: {avg_clustering:.3f}")
 # MAGIC - **Social Influence**: Neighbor average characteristics
 # MAGIC - **Unity Catalog Integration**: Graph features stored with proper governance
 # MAGIC - **Configuration-Driven**: Used table names from environment config
-# MAGIC - **Rich Visualization**: NetworkX-based graph visualization with centrality and community analysis
+# MAGIC - **Interactive Visualization**: Enhanced PyVis-based graph visualizations with centrality and community analysis
 # MAGIC
 # MAGIC The graph features are now available in the feature store and ready for model training.
 # MAGIC These features capture the social network dynamics that may influence customer churn behavior.
