@@ -1,5 +1,6 @@
 # Visualization
 plotly>=5.0.0
+pyvis
 
 # Network analysis
 networkx>=2.8.0
