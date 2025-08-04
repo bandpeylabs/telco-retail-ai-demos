@@ -154,13 +154,14 @@ print("=" * 50)
 # AutoML configuration
 automl_config = {
     "target_col": "churn",
-    "primary_metric": "roc_auc",
+    "primary_metric": "log_loss",  # Changed from roc_auc to log_loss
     "exclude_cols": ["customer_id"],
     "timeout_minutes": 30,
     "max_trials": 20,  # Limit trials for faster results
     "exclude_frameworks": ["sklearn"],  # Exclude sklearn for faster results
     "data_dir": "/dbfs/automl/churn_prediction",
-    "experiment_name": f"telco_churn_prediction_{catalog}_{schema}"
+    # Add timestamp to avoid conflicts
+    "experiment_name": f"telco_churn_prediction_{catalog}_{schema}_{int(pd.Timestamp.now().timestamp())}"
 }
 
 print("📋 AutoML Configuration:")
@@ -177,17 +178,52 @@ for key, value in automl_config.items():
 # DBTITLE 1,Execute AutoML experiment
 try:
     # Run AutoML experiment
+    print("🚀 Starting AutoML experiment...")
+    print(f"⏱️  Timeout: {automl_config['timeout_minutes']} minutes")
+    print(f"🎯 Target: {automl_config['target_col']}")
+    print(f"📊 Primary Metric: {automl_config['primary_metric']}")
+
     summary = automl.classify(
         features,
         **automl_config
     )
 
     print("✅ AutoML experiment completed successfully!")
-    print(f"🏆 Best model: {summary.best_trial.model_path}")
-    print(f"📊 Best score: {summary.best_trial.metrics['roc_auc']:.4f}")
+
+    # Safely display best model info
+    try:
+        best_trial = getattr(summary, 'best_trial', None)
+        if best_trial:
+            model_path = getattr(best_trial, 'model_path', 'N/A')
+            print(f"🏆 Best model: {model_path}")
+
+            metrics = getattr(best_trial, 'metrics', {})
+            if isinstance(metrics, dict):
+                best_score = metrics.get('log_loss', 'N/A')
+                print(f"📊 Best score (log_loss): {best_score}")
+        else:
+            print("⚠️  Best trial information not available")
+    except Exception as e:
+        print(f"⚠️  Could not display best model info: {e}")
 
 except Exception as e:
     print(f"❌ AutoML experiment failed: {e}")
+
+    # Provide helpful error messages
+    if "experiment already exists" in str(e).lower():
+        print("\n💡 Solution: The experiment name already exists.")
+        print("   - The notebook automatically adds a timestamp to avoid conflicts")
+        print("   - Try running the cell again, or manually delete the existing experiment")
+    elif "roc_auc" in str(e).lower():
+        print("\n💡 Solution: ROC AUC metric is not available in this AutoML version.")
+        print("   - The notebook now uses 'log_loss' as the primary metric")
+        print("   - This is a suitable alternative for binary classification")
+    else:
+        print(f"\n💡 General troubleshooting:")
+        print("   - Check that your data has the target column 'churn'")
+        print("   - Ensure you have sufficient permissions to create experiments")
+        print("   - Try reducing timeout_minutes or max_trials for faster execution")
+
     raise
 
 # COMMAND ----------
@@ -206,21 +242,38 @@ except Exception as e:
 print("📊 AutoML Experiment Results:")
 print("=" * 50)
 
-# Display experiment summary
-print(f"🎯 Target Column: {summary.target_col}")
-print(f"📈 Primary Metric: {summary.primary_metric}")
-print(f"🔢 Total Trials: {len(summary.trials)}")
-print(f"⏱️  Total Runtime: {summary.experiment_duration:.1f} minutes")
+# Display experiment summary with safe property access
+try:
+    print(f"🎯 Target Column: {getattr(summary, 'target_col', 'N/A')}")
+    print(f"📈 Primary Metric: {getattr(summary, 'primary_metric', 'N/A')}")
+    print(f"🔢 Total Trials: {len(getattr(summary, 'trials', []))}")
+    print(
+        f"⏱️  Total Runtime: {getattr(summary, 'experiment_duration', 'N/A')} minutes")
+except Exception as e:
+    print(f"⚠️  Could not display experiment summary: {e}")
 
-# Display best trial details
-best_trial = summary.best_trial
-print(f"\n🏆 Best Trial Details:")
-print(f"  - Model Path: {best_trial.model_path}")
-print(f"  - Algorithm: {best_trial.model_type}")
-print(f"  - ROC AUC: {best_trial.metrics['roc_auc']:.4f}")
-print(f"  - Accuracy: {best_trial.metrics.get('accuracy', 'N/A')}")
-print(f"  - Precision: {best_trial.metrics.get('precision', 'N/A')}")
-print(f"  - Recall: {best_trial.metrics.get('recall', 'N/A')}")
+# Display best trial details with safe property access
+try:
+    best_trial = getattr(summary, 'best_trial', None)
+    if best_trial:
+        print(f"\n🏆 Best Trial Details:")
+        print(f"  - Model Path: {getattr(best_trial, 'model_path', 'N/A')}")
+        print(f"  - Algorithm: {getattr(best_trial, 'model_type', 'N/A')}")
+
+        # Safely access metrics
+        metrics = getattr(best_trial, 'metrics', {})
+        if isinstance(metrics, dict):
+            print(f"  - Log Loss: {metrics.get('log_loss', 'N/A')}")
+            print(f"  - Accuracy: {metrics.get('accuracy', 'N/A')}")
+            print(f"  - Precision: {metrics.get('precision', 'N/A')}")
+            print(f"  - Recall: {metrics.get('recall', 'N/A')}")
+            print(f"  - F1 Score: {metrics.get('f1_score', 'N/A')}")
+        else:
+            print(f"  - Metrics: {metrics}")
+    else:
+        print("⚠️  No best trial information available")
+except Exception as e:
+    print(f"⚠️  Could not display best trial details: {e}")
 
 # COMMAND ----------
 
@@ -231,29 +284,45 @@ print(f"  - Recall: {best_trial.metrics.get('recall', 'N/A')}")
 
 # DBTITLE 1,Analyze feature importance
 try:
-    # Get feature importance from best model
-    feature_importance = summary.best_trial.feature_importance
+    # Get feature importance from best model with safe access
+    best_trial = getattr(summary, 'best_trial', None)
+    if best_trial:
+        feature_importance = getattr(best_trial, 'feature_importance', None)
 
-    if feature_importance is not None:
-        print("🔍 Feature Importance (Top 20):")
-        print("=" * 40)
+        if feature_importance is not None:
+            print("🔍 Feature Importance (Top 20):")
+            print("=" * 40)
 
-        # Convert to pandas for easier display
-        importance_df = pd.DataFrame(feature_importance)
-        importance_df = importance_df.sort_values(
-            'importance', ascending=False).head(20)
+            # Convert to pandas for easier display
+            if isinstance(feature_importance, list):
+                importance_df = pd.DataFrame(feature_importance)
+            elif isinstance(feature_importance, dict):
+                importance_df = pd.DataFrame([feature_importance])
+            else:
+                importance_df = pd.DataFrame(feature_importance)
 
-        display(importance_df)
+            if not importance_df.empty and 'importance' in importance_df.columns:
+                importance_df = importance_df.sort_values(
+                    'importance', ascending=False).head(20)
 
-        # Print top features
-        print("\n🏆 Top 10 Most Important Features:")
-        for idx, row in importance_df.head(10).iterrows():
-            print(f"  {idx+1}. {row['feature']}: {row['importance']:.4f}")
+                display(importance_df)
+
+                # Print top features
+                print("\n🏆 Top 10 Most Important Features:")
+                for idx, row in importance_df.head(10).iterrows():
+                    feature_name = row.get('feature', f'Feature_{idx}')
+                    importance_val = row.get('importance', 0)
+                    print(f"  {idx+1}. {feature_name}: {importance_val:.4f}")
+            else:
+                print("⚠️  Feature importance data format not recognized")
+        else:
+            print("⚠️  Feature importance not available for this model type")
     else:
-        print("⚠️  Feature importance not available for this model type")
+        print("⚠️  No best trial available for feature importance analysis")
 
 except Exception as e:
     print(f"⚠️  Could not retrieve feature importance: {e}")
+    print("This is normal for some model types that don't provide feature importance")
 
 # COMMAND ----------
 
@@ -268,18 +337,28 @@ except Exception as e:
 # COMMAND ----------
 
 # DBTITLE 1,Save model information for deployment
-# Save experiment results
-experiment_results = {
-    "experiment_id": summary.experiment_id,
-    "best_model_path": summary.best_trial.model_path,
-    "best_score": summary.best_trial.metrics['roc_auc'],
-    "best_algorithm": summary.best_trial.model_type,
-    "total_trials": len(summary.trials),
-    "experiment_duration": summary.experiment_duration,
-    # Exclude target and customer_id
-    "feature_count": len(features.columns) - 2,
-    "data_shape": f"{features.count()} rows x {len(features.columns)} columns"
-}
+# Save experiment results with safe property access
+try:
+    best_trial = getattr(summary, 'best_trial', None)
+    metrics = getattr(best_trial, 'metrics', {}) if best_trial else {}
+
+    experiment_results = {
+        "experiment_id": getattr(summary, 'experiment_id', 'N/A'),
+        "best_model_path": getattr(best_trial, 'model_path', 'N/A') if best_trial else 'N/A',
+        "best_score": metrics.get('log_loss', 'N/A'),
+        "best_algorithm": getattr(best_trial, 'model_type', 'N/A') if best_trial else 'N/A',
+        "total_trials": len(getattr(summary, 'trials', [])),
+        "experiment_duration": getattr(summary, 'experiment_duration', 'N/A'),
+        # Exclude target and customer_id
+        "feature_count": len(features.columns) - 2,
+        "data_shape": f"{features.count()} rows x {len(features.columns)} columns"
+    }
+except Exception as e:
+    print(f"⚠️  Could not save experiment results: {e}")
+    experiment_results = {
+        "feature_count": len(features.columns) - 2,
+        "data_shape": f"{features.count()} rows x {len(features.columns)} columns"
+    }
 
 print("💾 Experiment Results Summary:")
 for key, value in experiment_results.items():
@@ -298,13 +377,13 @@ print("=" * 40)
 
 deployment_code = f"""
 # Model Deployment Code
-# Generated from AutoML experiment: {summary.experiment_id}
+# Generated from AutoML experiment: {getattr(summary, 'experiment_id', 'N/A')}
 
 from databricks import automl
 from databricks.feature_store import FeatureStoreClient
 
 # Load the best model
-model = automl.load_model("{summary.best_trial.model_path}")
+model = automl.load_model("{getattr(getattr(summary, 'best_trial', None), 'model_path', 'MODEL_PATH_NOT_AVAILABLE')}")
 
 # Feature store client
 fs = FeatureStoreClient()

@@ -19,6 +19,7 @@ main:
       customer_features: telco_churn_customer_features
       graph_features: telco_churn_graph_features
       combined_features: telco_churn_combined_features
+      dashboard_data: telco_churn_dashboard_data
 
   # Feature store configuration
   feature_store:
